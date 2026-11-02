@@ -11,6 +11,7 @@ import com.winlator.core.DefaultVersion;
 import com.winlator.core.EnvVars;
 import com.winlator.core.FileUtils;
 import com.winlator.core.GeneralComponents;
+import com.winlator.core.GPUHelper;
 import com.winlator.core.KeyValueSet;
 import com.winlator.core.StringUtils;
 import com.winlator.widget.GPUCardAdapter;
@@ -79,13 +80,13 @@ public class DXVKConfigDialog extends ContentDialog {
         File dxvkConfigFile = new File(rootDir, RootFS.USER_CONFIG_PATH+"/dxvk.conf");
 
         FileUtils.delete(dxvkConfigFile);
-        String content = getDXVKConfigContent(config);
+        String content = getDXVKConfigContent(config, context);
         if (FileUtils.writeString(dxvkConfigFile, content)) {
             envVars.put("DXVK_CONFIG_FILE", RootFS.getDosUserConfigPath()+"\\dxvk.conf");
         }
     }
 
-    private static String getDXVKConfigContent(KeyValueSet config) {
+    private static String getDXVKConfigContent(KeyValueSet config, Context context) {
         String content = "";
 
         String maxDeviceMemory = config.get("maxDeviceMemory");
@@ -114,6 +115,20 @@ public class DXVKConfigDialog extends ContentDialog {
         }
 
         content += "d3d11.constantBufferRangeCheck = \"True\"\n\n";
+
+        if (context != null && GPUHelper.isMali(context)) {
+            content += "d3d9.deferSurfaceCreation = True\n";
+            content += "d3d9.maxFrameLatency = 1\n";
+            content += "d3d9.samplerAnisotropy = 0\n";
+            content += "dxgi.syncInterval = 0\n";
+            content += "d3d9.presentInterval = 0\n\n";
+        }
+
+        content += "[gta_sa.exe]\n";
+        content += "d3d9.deferSurfaceCreation = True\n";
+        content += "d3d9.maxFrameLatency = 1\n";
+        content += "d3d9.samplerAnisotropy = 0\n";
+        content += "d3d9.presentInterval = 0\n\n";
 
         content += "[GTA5.exe]\n";
         content += "dxgi.maxDeviceMemory = 512\n";

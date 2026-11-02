@@ -40,7 +40,6 @@ public class GamepadHandler {
     private final ArrayList<ExternalController> connectedControllers = new ArrayList<>(GAMEPAD_MAX_COUNT);
     private GamepadPlayerConfig[] gamepadPlayerConfigs;
     private short[] gamepadModelIds;
-    private final AtomicBoolean sendingState = new AtomicBoolean();
 
     public static class GamepadModel {
         public final String name;
@@ -222,22 +221,30 @@ public class GamepadHandler {
     }
 
     public void sendGamepadState(final GamepadSlot gamepadSlot) {
-        if (!winHandler.initReceived || gamepadClients.isEmpty() || sendingState.get()) return;
+        if (!winHandler.initReceived || gamepadClients.isEmpty()) return;
         final byte slot = (byte)ArrayUtils.indexOf(gamepadSlots, gamepadSlot);
         if (slot == ArrayUtils.INDEX_NOT_FOUND) return;
         final GamepadState state = gamepadSlot.getGamepadState();
-        final ByteBuffer buffer = winHandler.sendData;
-        sendingState.set(true);
+        if (state == null) return;
 
-        for (final int port : gamepadClients) {
-            winHandler.addAction(() -> {
-                sendingState.set(false);
-                buffer.rewind();
-                buffer.put(RequestCodes.GET_GAMEPAD_STATE);
-                buffer.put(slot);
-                writeStateToBuffer(buffer, state);
-                winHandler.sendPacket(port);
-            });
+        short buttons = state.buttons;
+        if (dinputMapperType == DINPUT_MAPPER_TYPE_STANDARD) {
+            if (state.triggerL > 0) buttons |= (1<<ExternalController.IDX_BUTTON_L2);
+            if (state.triggerR > 0) buttons |= (1<<ExternalController.IDX_BUTTON_R2);
+        }
+
+        short thumbLX = (short)(state.thumbLX * Short.MAX_VALUE);
+        short thumbLY = (short)(state.thumbLY * Short.MAX_VALUE);
+        short thumbRX = (short)(state.thumbRX * Short.MAX_VALUE);
+        short thumbRY = (short)(state.thumbRY * Short.MAX_VALUE);
+        short triggerL = (short)(state.triggerL * Short.MAX_VALUE);
+        short triggerR = (short)(state.triggerR * Short.MAX_VALUE);
+        byte povHat = state.getPovHat();
+
+        for (int i = 0; i < gamepadClients.size(); i++) {
+            int port = gamepadClients.get(i);
+            NativeInput.sendGamepadState(port, slot, dinputMapperType, buttons, povHat,
+                thumbLX, thumbLY, thumbRX, thumbRY, triggerL, triggerR);
         }
     }
 

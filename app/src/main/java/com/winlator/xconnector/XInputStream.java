@@ -66,7 +66,15 @@ public class XInputStream {
     }
 
     public void read(byte[] result) {
-        for (int i = 0; i < result.length; i++) result[i] = readByte();
+        read(result, 0, result.length);
+    }
+
+    public void read(byte[] result, int offset, int length) {
+        readByteArray(nativePtr, result, offset, length);
+    }
+
+    public void readInts(int[] result, int offset, int count) {
+        readIntArray(nativePtr, result, offset, count);
     }
 
     public ByteBuffer readByteBuffer(int length) {
@@ -125,4 +133,8 @@ public class XInputStream {
 
     @CriticalNative
     private static native void destroy(long nativePtr);
+
+    private static native void readByteArray(long nativePtr, byte[] dest, int offset, int length);
+
+    private static native void readIntArray(long nativePtr, int[] dest, int offset, int count);
 }

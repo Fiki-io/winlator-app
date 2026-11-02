@@ -2,6 +2,7 @@
 #include <string.h>
 #include <jni.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "winlator.h"
 #include "socket_utils.h"
@@ -144,4 +145,40 @@ JNIEXPORT jint JNICALL
 Java_com_winlator_xconnector_XOutputStream_length(jlong nativePtr) {
     XOutputStream* outputStream = (XOutputStream*)nativePtr;
     return outputStream->buffer.position;
+}
+
+JNIEXPORT void JNICALL
+Java_com_winlator_xconnector_XOutputStream_writeInputDeviceEvent(
+    jlong nativePtr, jbyte code, jbyte detail, jshort seq, jint timestamp,
+    jint rootId, jint eventId, jint childId,
+    jshort rootX, jshort rootY, jshort eventX, jshort eventY, jshort stateBits) {
+    XOutputStream* outputStream = (XOutputStream*)nativePtr;
+    ensureSpaceIsAvailable(outputStream, 32);
+    uint8_t* p = (uint8_t*)(outputStream->buffer.data + outputStream->buffer.position);
+    p[0] = (uint8_t)code;
+    p[1] = (uint8_t)detail;
+    *(uint16_t*)(p + 2) = (uint16_t)seq;
+    *(uint32_t*)(p + 4) = (uint32_t)timestamp;
+    *(uint32_t*)(p + 8) = (uint32_t)rootId;
+    *(uint32_t*)(p + 12) = (uint32_t)eventId;
+    *(uint32_t*)(p + 16) = (uint32_t)childId;
+    *(int16_t*)(p + 20) = (int16_t)rootX;
+    *(int16_t*)(p + 22) = (int16_t)rootY;
+    *(int16_t*)(p + 24) = (int16_t)eventX;
+    *(int16_t*)(p + 26) = (int16_t)eventY;
+    *(uint16_t*)(p + 28) = (uint16_t)stateBits;
+    p[30] = 1;
+    p[31] = 0;
+    outputStream->buffer.position += 32;
+}
+
+JNIEXPORT void JNICALL
+Java_com_winlator_xconnector_XOutputStream_writeByteArray(JNIEnv *env, jclass obj,
+                                                          jlong nativePtr, jbyteArray data,
+                                                          jint offset, jint length) {
+    XOutputStream* outputStream = (XOutputStream*)nativePtr;
+    ensureSpaceIsAvailable(outputStream, length);
+    (*env)->GetByteArrayRegion(env, data, offset, length,
+                               (jbyte*)(outputStream->buffer.data + outputStream->buffer.position));
+    outputStream->buffer.position += length;
 }

@@ -79,47 +79,16 @@ static void internalDestroyImage(VkDevice device, TextureDecoder_Image* targetIm
 }
 
 static bool readCachedImage(TextureDecoder_Image* image, uint64_t hash, void* result) {
-    char filename[128] = {0};
-    sprintf(filename, CACHE_DIR "/%lx-%dx%d-%d.imd", hash, image->width, image->height, image->format);
-
-    createDirectory(CACHE_DIR);
-    size_t size = image->width * image->height * 4;
-    return fileGetContents(filename, result, &size) ? true : false;
+    (void)image;
+    (void)hash;
+    (void)result;
+    return false;
 }
 
 static void writeImageToCache(TextureDecoder* textureDecoder, TextureDecoder_Image* image, uint64_t hash) {
-    if (textureDecoder->imageCacheSize == 0) return;
-    createDirectory(CACHE_DIR);
-
-    char* content = fileGetContents(CACHE_DIR "/.cache-size", NULL, NULL);
-    uint64_t currentCacheSize = 0;
-    if (content) {
-        currentCacheSize = strtoll(content, NULL, 10);
-        MEMFREE(content);
-    }
-
-    uint64_t maxCacheSize = (uint64_t)textureDecoder->imageCacheSize << 20;
-    while (currentCacheSize > maxCacheSize) {
-        FindFileInfo fileInfo = {0};
-        if (findFirstFile(CACHE_DIR, &fileInfo) && remove(fileInfo.path) == 0) {
-            currentCacheSize -= fileInfo.size;
-        }
-        else return;
-    }
-
-    char filename[128] = {0};
-    sprintf(filename, CACHE_DIR "/%lx-%dx%d-%d.imd", hash, image->width, image->height, image->format);
-    size_t size = image->width * image->height * 4;
-
-    bool success = false;
-    if (filePutContents(filename, textureDecoder->decompressedData, size)) {
-        currentCacheSize += size;
-        char value[32] = {0};
-        sprintf(value, "%ld", currentCacheSize);
-        success = filePutContents(CACHE_DIR "/.cache-size", value, strlen(value));
-    }
-
-    if (!success) remove(filename);
+    (void)textureDecoder;
+    (void)image;
+    (void)hash;
 }
 
 static uint32_t getDeviceSupportedFormats(VkPhysicalDevice physicalDevice) {

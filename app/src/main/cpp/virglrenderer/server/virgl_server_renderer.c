@@ -524,6 +524,7 @@ int virgl_server_resource_busy_wait(struct virgl_client *client, UNUSED uint32_t
          break;
 
       vrend_renderer_check_fences(client);
+      usleep(50);
    } while (1);
 
    send_buf[0] = 1;

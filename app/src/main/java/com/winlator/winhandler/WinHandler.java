@@ -161,28 +161,14 @@ public class WinHandler {
 
     public void mouseEvent(int flags, int dx, int dy, int wheelDelta) {
         if (!initReceived) return;
-        addAction(() -> {
-            sendData.rewind();
-            sendData.put(RequestCodes.MOUSE_EVENT);
-            sendData.putInt(10);
-            sendData.putInt(flags);
-            sendData.putShort((short)dx);
-            sendData.putShort((short)dy);
-            sendData.putShort((short)wheelDelta);
-            sendData.put((byte)((flags & MouseEventFlags.MOVE) != 0 ? 1 : 0)); // cursor pos feedback
-            sendPacket(CLIENT_PORT);
-        });
+        boolean isRelative = activity.getXServer().isRelativeMouseMovement();
+        boolean cursorFeedback = (flags & MouseEventFlags.MOVE) != 0 && !isRelative;
+        NativeInput.sendMouseEvent(flags, dx, dy, wheelDelta, cursorFeedback);
     }
 
     public void keyboardEvent(byte vkey, int flags) {
         if (!initReceived) return;
-        addAction(() -> {
-            sendData.rewind();
-            sendData.put(RequestCodes.KEYBOARD_EVENT);
-            sendData.put(vkey);
-            sendData.putInt(flags);
-            sendPacket(CLIENT_PORT);
-        });
+        NativeInput.sendKeyboardEvent(vkey, flags);
     }
 
     public void bringToFront(final String processName) {
@@ -293,6 +279,7 @@ public class WinHandler {
 
     public void stop() {
         running = false;
+        NativeInput.stop();
 
         if (socket != null) {
             socket.close();
@@ -421,6 +408,7 @@ public class WinHandler {
     }
 
     public void start() {
+        NativeInput.init();
         try {
             localhost = InetAddress.getLocalHost();
         }

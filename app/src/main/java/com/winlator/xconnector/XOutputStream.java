@@ -52,7 +52,7 @@ public class XOutputStream implements XStreamLock {
     }
 
     public void write(byte[] data, int offset, int length) {
-        for (int i = offset; i < length; i++) writeByte(nativePtr, data[i]);
+        writeByteArray(nativePtr, data, offset, length);
     }
 
     public void writeShortAt(int position, short value) {
@@ -125,6 +125,12 @@ public class XOutputStream implements XStreamLock {
         return length(nativePtr);
     }
 
+    public void writeInputDeviceEvent(byte code, byte detail, short seq, int timestamp,
+                                      int rootId, int eventId, int childId,
+                                      short rootX, short rootY, short eventX, short eventY, short stateBits) {
+        writeInputDeviceEvent(nativePtr, code, detail, seq, timestamp, rootId, eventId, childId, rootX, rootY, eventX, eventY, stateBits);
+    }
+
     private native long nativeAllocate(int fd, int initialCapacity);
 
     @CriticalNative
@@ -147,6 +153,8 @@ public class XOutputStream implements XStreamLock {
 
     private static native void writeAt(long nativePtr, int position, byte[] data);
 
+    private static native void writeByteArray(long nativePtr, byte[] data, int offset, int length);
+
     private static native void writeByteBuffer(long nativePtr, ByteBuffer data, int offset, int length);
 
     @CriticalNative
@@ -157,4 +165,9 @@ public class XOutputStream implements XStreamLock {
 
     @CriticalNative
     private static native int length(long nativePtr);
+
+    @CriticalNative
+    private static native void writeInputDeviceEvent(long nativePtr, byte code, byte detail, short seq, int timestamp,
+                                                     int rootId, int eventId, int childId,
+                                                     short rootX, short rootY, short eventX, short eventY, short stateBits);
 }

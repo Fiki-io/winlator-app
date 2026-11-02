@@ -26,15 +26,17 @@ public class ALSAClient {
     }
     private DataType dataType = DataType.U8;
     private AudioTrack audioTrack = null;
+    private long nativeAAudioHandle = 0;
     private byte channels = 2;
     private int sampleRate = 0;
     private int position;
     private int bufferSize;
+    private int targetBufferSize;
     private byte frameBytes;
     private short previousUnderrunCount = 0;
+    private int stableWriteCount = 0;
     private int bufferCapacity;
     private ByteBuffer sharedBuffer;
-    private ByteBuffer auxBuffer;
     protected final Options options;
     private static short framesPerBuffer = 256;
 
@@ -74,6 +76,11 @@ public class ALSAClient {
             sharedBuffer = null;
         }
 
+        if (nativeAAudioHandle != 0) {
+            NativeAAudio.release(nativeAAudioHandle);
+            nativeAAudioHandle = 0;
+        }
+
         if (audioTrack != null) {
             audioTrack.pause();
             audioTrack.flush();
@@ -104,10 +111,18 @@ public class ALSAClient {
     public void prepare() {
         position = 0;
         previousUnderrunCount = 0;
+        stableWriteCount = 0;
         frameBytes = (byte)(channels * dataType.byteCount);
         release();
 
         if (!isValidBufferSize()) return;
+
+        nativeAAudioHandle = NativeAAudio.createStream(sampleRate, channels, dataType.ordinal(), options.performanceMode, options.latencyMillis);
+        if (nativeAAudioHandle != 0) {
+            if (options.volume != 1.0f) NativeAAudio.setVolume(nativeAAudioHandle, options.volume);
+            NativeAAudio.start(nativeAAudioHandle);
+            return;
+        }
 
         AudioFormat format = new AudioFormat.Builder()
             .setEncoding(getPCMEncoding(dataType))
@@ -121,33 +136,62 @@ public class ALSAClient {
             .setBufferSizeInBytes(getBufferSizeInBytes())
             .build();
 
+        targetBufferSize = audioTrack.getBufferSizeInFrames();
         bufferCapacity = audioTrack.getBufferCapacityInFrames();
         if (options.volume != 1.0f) audioTrack.setVolume(options.volume);
         audioTrack.play();
     }
 
     public void start() {
-        if (audioTrack != null && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
+        if (nativeAAudioHandle != 0) {
+            NativeAAudio.start(nativeAAudioHandle);
+        }
+        else if (audioTrack != null && audioTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING) {
             audioTrack.play();
         }
     }
 
     public void stop() {
-        if (audioTrack != null) {
+        if (nativeAAudioHandle != 0) {
+            NativeAAudio.stop(nativeAAudioHandle);
+        }
+        else if (audioTrack != null) {
             audioTrack.stop();
             audioTrack.flush();
         }
     }
 
     public void pause() {
-        if (audioTrack != null) audioTrack.pause();
+        if (nativeAAudioHandle != 0) {
+            NativeAAudio.pause(nativeAAudioHandle);
+        }
+        else if (audioTrack != null) {
+            audioTrack.pause();
+        }
     }
 
     public void drain() {
-        if (audioTrack != null) audioTrack.flush();
+        if (nativeAAudioHandle != 0) {
+            NativeAAudio.flush(nativeAAudioHandle);
+        }
+        else if (audioTrack != null) {
+            audioTrack.flush();
+        }
     }
 
     public void writeDataToTrack(ByteBuffer data) {
+        if (nativeAAudioHandle != 0) {
+            int pos = data.position();
+            int remaining = data.remaining();
+            int framesWritten = NativeAAudio.write(nativeAAudioHandle, data, pos, remaining);
+            if (framesWritten > 0) {
+                int bytesConsumed = framesWritten * frameBytes;
+                data.position(Math.min(pos + bytesConsumed, data.limit()));
+            }
+            position += remaining;
+            return;
+        }
+
         if (dataType == DataType.S16LE || dataType == DataType.FLOATLE) {
             data.order(ByteOrder.LITTLE_ENDIAN);
         }
@@ -163,7 +207,7 @@ public class ALSAClient {
                 try {
                     bytesWritten = audioTrack.write(data, data.remaining(), AudioTrack.WRITE_BLOCKING);
                     if (bytesWritten < 0) break;
-                    increaseBufferSizeIfUnderrunOccurs();
+                    adjustBufferSizeWithDecay();
                 }
                 catch (Exception e) {
                     break;
@@ -176,16 +220,31 @@ public class ALSAClient {
         }
     }
 
-    private void increaseBufferSizeIfUnderrunOccurs() {
+    private void adjustBufferSizeWithDecay() {
         int underrunCount = audioTrack.getUnderrunCount();
-        if (underrunCount > previousUnderrunCount && bufferSize < bufferCapacity) {
+        if (underrunCount > previousUnderrunCount) {
             previousUnderrunCount = (short)underrunCount;
-            bufferSize += framesPerBuffer;
-            audioTrack.setBufferSizeInFrames(bufferSize);
+            stableWriteCount = 0;
+            int maxAllowed = Math.min(targetBufferSize + framesPerBuffer * 3, bufferCapacity);
+            if (bufferSize < maxAllowed) {
+                bufferSize += framesPerBuffer;
+                audioTrack.setBufferSizeInFrames(bufferSize);
+            }
+        }
+        else {
+            stableWriteCount++;
+            if (stableWriteCount > 100 && bufferSize > targetBufferSize) {
+                stableWriteCount = 0;
+                bufferSize -= framesPerBuffer;
+                audioTrack.setBufferSizeInFrames(bufferSize);
+            }
         }
     }
 
     public int pointer() {
+        if (nativeAAudioHandle != 0) {
+            return (int)NativeAAudio.getFramePosition(nativeAAudioHandle);
+        }
         return audioTrack != null ? position / frameBytes : 0;
     }
 
@@ -211,17 +270,15 @@ public class ALSAClient {
 
     public void setSharedBuffer(ByteBuffer sharedBuffer) {
         if (sharedBuffer != null) {
-            auxBuffer = ByteBuffer.allocateDirect(getBufferSizeInBytes()).order(ByteOrder.LITTLE_ENDIAN);
             this.sharedBuffer = sharedBuffer.order(ByteOrder.LITTLE_ENDIAN);
         }
         else {
-            auxBuffer = null;
             this.sharedBuffer = null;
         }
     }
 
     public ByteBuffer getAuxBuffer() {
-        return auxBuffer;
+        return sharedBuffer;
     }
 
     public DataType getDataType() {

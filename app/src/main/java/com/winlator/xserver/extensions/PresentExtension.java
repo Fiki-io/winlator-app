@@ -5,7 +5,9 @@ import static com.winlator.xserver.XClientRequestHandler.RESPONSE_CODE_SUCCESS;
 import android.util.SparseArray;
 
 import com.winlator.core.GPUHelper;
+import com.winlator.renderer.GLRenderer;
 import com.winlator.renderer.GPUImage;
+import com.winlator.renderer.NativeDisplay;
 import com.winlator.renderer.Texture;
 import com.winlator.xconnector.XInputStream;
 import com.winlator.xconnector.XOutputStream;
@@ -182,6 +184,26 @@ public class PresentExtension extends Extension implements WindowManager.OnWindo
             if (pixmap != null) {
                 Texture srcTexture = pixmap.drawable.getTexture();
                 if (srcTexture instanceof GPUImage) {
+                    GLRenderer renderer = xServer.getRenderer();
+                    if (NativeDisplay.isAvailable() && renderer != null && !renderer.effectComposer.hasEffects()) {
+                        NativeDisplay.queuePresentation(
+                            srcTexture.getTextureId(),
+                            pixmap.drawable.width,
+                            pixmap.drawable.height,
+                            srcTexture.isFlipY(),
+                            window,
+                            pixmap,
+                            serial,
+                            idleFence,
+                            ust,
+                            msc,
+                            targetMSC,
+                            this,
+                            renderer.xServerView
+                        );
+                        return;
+                    }
+
                     if (eglContextPtr == 0) createCopyEGLContext(client);
                     content.setData(null);
                     content.getTexture().copyFromSource(srcTexture);
@@ -196,6 +218,13 @@ public class PresentExtension extends Extension implements WindowManager.OnWindo
             }
             else content.forceUpdate();
         }
+    }
+
+    public void onPresentationFinished(Window window, Pixmap pixmap, int serial, int idleFence, long targetMSC) {
+        if (targetMSC > 0) {
+            sendIdleNotifyScheduled(window, pixmap, serial, idleFence);
+        }
+        else sendIdleNotify(window, pixmap, serial, idleFence);
     }
 
     private void selectInput(XClient client, XInputStream inputStream, XOutputStream outputStream) throws IOException, XRequestError {

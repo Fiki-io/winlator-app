@@ -153,7 +153,12 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
                 numFingers++;
                 break;
             case MotionEvent.ACTION_MOVE:
+                int historySize = event.getHistorySize();
                 if (event.isFromSource(InputDevice.SOURCE_MOUSE)) {
+                    for (int h = 0; h < historySize; h++) {
+                        float[] transformedPoint = XForm.transformPoint(xform, event.getHistoricalX(h), event.getHistoricalY(h));
+                        if (isEnabled()) xServer.injectPointerMove((int)transformedPoint[0], (int)transformedPoint[1]);
+                    }
                     float[] transformedPoint = XForm.transformPoint(xform, event.getX(), event.getY());
                     if (isEnabled()) xServer.injectPointerMove((int)transformedPoint[0], (int)transformedPoint[1]);
                 }
@@ -162,6 +167,10 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
                         if (fingers[i] != null) {
                             int pointerIndex = event.findPointerIndex(i);
                             if (pointerIndex >= 0) {
+                                for (int h = 0; h < historySize; h++) {
+                                    fingers[i].update(event.getHistoricalX(pointerIndex, h), event.getHistoricalY(pointerIndex, h));
+                                    handleFingerMove(fingers[i]);
+                                }
                                 fingers[i].update(event.getX(pointerIndex), event.getY(pointerIndex));
                                 handleFingerMove(fingers[i]);
                             }
@@ -419,6 +428,15 @@ public class TouchpadView extends View implements View.OnCapturedPointerListener
     @Override
     public boolean onCapturedPointer(View view, MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_MOVE) {
+            int historySize = event.getHistorySize();
+            for (int h = 0; h < historySize; h++) {
+                float hdx = event.getHistoricalX(h) * sensitivity;
+                if (Math.abs(hdx) > CURSOR_ACCELERATION_THRESHOLD) hdx *= CURSOR_ACCELERATION;
+                float hdy = event.getHistoricalY(h) * sensitivity;
+                if (Math.abs(hdy) > CURSOR_ACCELERATION_THRESHOLD) hdy *= CURSOR_ACCELERATION;
+                xServer.injectPointerMoveDelta(Mathf.roundPoint(hdx), Mathf.roundPoint(hdy));
+            }
+
             float dx = event.getX() * sensitivity;
             if (Math.abs(dx) > CURSOR_ACCELERATION_THRESHOLD) dx *= CURSOR_ACCELERATION;
 

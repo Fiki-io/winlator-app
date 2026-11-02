@@ -2,6 +2,7 @@ package com.winlator.container;
 
 import com.winlator.box64.Box64Preset;
 import com.winlator.core.AppUtils;
+import com.winlator.core.CPUStatus;
 import com.winlator.core.EnvVars;
 import com.winlator.core.FileUtils;
 import com.winlator.core.KeyValueSet;
@@ -426,8 +427,28 @@ public class Container {
     }
 
     public static String getFallbackCPUList() {
-        String cpuList = "";
         int numProcessors = Runtime.getRuntime().availableProcessors();
+        if (numProcessors >= 8) {
+            int maxSpeed = 0;
+            for (int i = 0; i < numProcessors; i++) {
+                int speed = CPUStatus.getMaxClockSpeed(i);
+                if (speed > maxSpeed) maxSpeed = speed;
+            }
+
+            if (maxSpeed > 0) {
+                String bigCores = "";
+                for (int i = 0; i < numProcessors; i++) {
+                    int speed = CPUStatus.getMaxClockSpeed(i);
+                    if (speed >= (int)(maxSpeed * 0.85f)) {
+                        bigCores += (!bigCores.isEmpty() ? "," : "") + i;
+                    }
+                }
+                if (!bigCores.isEmpty()) return bigCores;
+            }
+            return "4,5,6,7";
+        }
+
+        String cpuList = "";
         for (int i = 0; i < numProcessors; i++) cpuList += (!cpuList.isEmpty() ? "," : "")+i;
         return cpuList;
     }

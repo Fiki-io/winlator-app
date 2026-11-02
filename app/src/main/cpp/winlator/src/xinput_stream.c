@@ -194,3 +194,31 @@ JNIEXPORT void JNICALL
 Java_com_winlator_xconnector_XInputStream_destroy(jlong nativePtr) {
     XInputStream_destroy((XInputStream*)nativePtr);
 }
+
+JNIEXPORT void JNICALL
+Java_com_winlator_xconnector_XInputStream_readByteArray(JNIEnv *env, jclass obj,
+                                                        jlong nativePtr, jbyteArray dest,
+                                                        jint offset, jint length) {
+    XInputStream* inputStream = (XInputStream*)nativePtr;
+    int avail = inputStream->activeBuffer.limit - inputStream->activeBuffer.position;
+    int toRead = length < avail ? length : avail;
+    if (toRead > 0) {
+        (*env)->SetByteArrayRegion(env, dest, offset, toRead,
+                                   (const jbyte*)(inputStream->activeBuffer.data + inputStream->activeBuffer.position));
+        inputStream->activeBuffer.position += toRead;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_winlator_xconnector_XInputStream_readIntArray(JNIEnv *env, jclass obj,
+                                                       jlong nativePtr, jintArray dest,
+                                                       jint offset, jint count) {
+    XInputStream* inputStream = (XInputStream*)nativePtr;
+    int availInts = (inputStream->activeBuffer.limit - inputStream->activeBuffer.position) / 4;
+    int toRead = count < availInts ? count : availInts;
+    if (toRead > 0) {
+        (*env)->SetIntArrayRegion(env, dest, offset, toRead,
+                                  (const jint*)(inputStream->activeBuffer.data + inputStream->activeBuffer.position));
+        inputStream->activeBuffer.position += toRead * 4;
+    }
+}

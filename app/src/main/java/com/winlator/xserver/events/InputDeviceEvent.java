@@ -36,20 +36,9 @@ public class InputDeviceEvent extends Event {
     @Override
     public void send(short sequenceNumber, XOutputStream outputStream) throws IOException {
         try (XStreamLock lock = outputStream.lock()) {
-            outputStream.writeByte(code);
-            outputStream.writeByte(detail);
-            outputStream.writeShort(sequenceNumber);
-            outputStream.writeInt(timestamp);
-            outputStream.writeInt(root.id);
-            outputStream.writeInt(event.id);
-            outputStream.writeInt(child != null ? child.id : 0);
-            outputStream.writeShort(rootX);
-            outputStream.writeShort(rootY);
-            outputStream.writeShort(eventX);
-            outputStream.writeShort(eventY);
-            outputStream.writeShort((short)state.getBits());
-            outputStream.writeByte((byte)1);
-            outputStream.writeByte((byte)0);
+            outputStream.writeInputDeviceEvent((byte)code, detail, sequenceNumber, timestamp,
+                root.id, event.id, child != null ? child.id : 0,
+                rootX, rootY, eventX, eventY, (short)state.getBits());
         }
     }
 }

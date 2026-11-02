@@ -128,6 +128,19 @@ public abstract class GPUHelper {
         return (short)(matcher.find() ? Integer.parseInt(matcher.group(1)) : 0);
     }
 
+    public static boolean isMali(Context context) {
+        String renderer = glGetRenderer(context);
+        if (renderer == null) return false;
+        String lower = renderer.toLowerCase();
+        return lower.contains("mali") || lower.contains("immortalis");
+    }
+
+    public static boolean isMediaTek() {
+        String hardware = android.os.Build.HARDWARE != null ? android.os.Build.HARDWARE.toLowerCase() : "";
+        String board = android.os.Build.BOARD != null ? android.os.Build.BOARD.toLowerCase() : "";
+        return hardware.contains("mt") || hardware.contains("mediatek") || board.contains("mt");
+    }
+
     public static int vkMakeVersion(String value) {
         final Pattern pattern = Pattern.compile("([0-9]+)\\.([0-9]+)\\.?([0-9]+)?");
         Matcher matcher = pattern.matcher(value);

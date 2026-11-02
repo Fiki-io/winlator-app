@@ -83,6 +83,7 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GPUHelper.setGlobalEGLContext();
+        NativeDisplay.init();
 
         GLES20.glFrontFace(GLES20.GL_CCW);
         GLES20.glDisable(GLES20.GL_CULL_FACE);
@@ -116,7 +117,9 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
         if (effectComposer.hasEffects()) {
             effectComposer.render();
         }
-        else drawFrame();
+        else if (!NativeDisplay.renderPending(this)) {
+            drawFrame();
+        }
     }
 
     protected void drawFrame() {
@@ -395,6 +398,14 @@ public class GLRenderer implements GLSurfaceView.Renderer, WindowManager.OnWindo
 
     public boolean isFullscreen() {
         return fullscreen;
+    }
+
+    public short getSurfaceWidth() {
+        return surfaceWidth;
+    }
+
+    public short getSurfaceHeight() {
+        return surfaceHeight;
     }
 
     public float getMagnifierZoom() {

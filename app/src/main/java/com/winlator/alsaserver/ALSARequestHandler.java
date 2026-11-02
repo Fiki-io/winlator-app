@@ -51,8 +51,11 @@ public class ALSARequestHandler implements RequestHandler {
             case RequestCodes.WRITE:
                 ByteBuffer sharedBuffer = alsaClient.getSharedBuffer();
                 if (sharedBuffer != null) {
-                    copySharedBuffer(alsaClient, requestLength, outputStream);
-                    alsaClient.writeDataToTrack(alsaClient.getAuxBuffer());
+                    sharedBuffer.position(ALSAClient.BUFFER_OFFSET).limit(ALSAClient.BUFFER_OFFSET + requestLength);
+                    try (XStreamLock lock = outputStream.lock()) {
+                        outputStream.writeByte((byte)1);
+                    }
+                    alsaClient.writeDataToTrack(sharedBuffer);
                     sharedBuffer.putInt(0, alsaClient.pointer());
                 }
                 else {
@@ -80,19 +83,6 @@ public class ALSARequestHandler implements RequestHandler {
                 break;
         }
         return true;
-    }
-
-    private void copySharedBuffer(ALSAClient alsaClient, int requestLength, XOutputStream outputStream) throws IOException {
-        ByteBuffer sharedBuffer = alsaClient.getSharedBuffer();
-        ByteBuffer auxBuffer = alsaClient.getAuxBuffer();
-
-        auxBuffer.position(0).limit(requestLength);
-        sharedBuffer.position(ALSAClient.BUFFER_OFFSET).limit(ALSAClient.BUFFER_OFFSET + requestLength);
-        auxBuffer.put(sharedBuffer);
-
-        try (XStreamLock lock = outputStream.lock()) {
-            outputStream.writeByte((byte)1);
-        }
     }
 
     private void createSharedMemory(ALSAClient alsaClient, XOutputStream outputStream) throws IOException {

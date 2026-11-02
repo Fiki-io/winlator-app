@@ -82,7 +82,6 @@ Java_com_winlator_core_GPUHelper_vkGetApiVersion() {
     PFN_vkDestroyInstance vkDestroyInstance = dlsym(libvulkan, "vkDestroyInstance");
     PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices = dlsym(libvulkan, "vkEnumeratePhysicalDevices");
     PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = dlsym(libvulkan, "vkGetPhysicalDeviceProperties");
-    PFN_vkGetPhysicalDeviceFeatures vkGetPhysicalDeviceFeatures = dlsym(libvulkan, "vkGetPhysicalDeviceFeatures");
 
     VkInstanceCreateInfo createInfo = {0};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -99,21 +98,6 @@ Java_com_winlator_core_GPUHelper_vkGetApiVersion() {
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 
     version = properties.apiVersion;
-    if (version >= VK_MAKE_VERSION(1, 3, 0)) {
-        VkPhysicalDeviceFeatures features = {0};
-        vkGetPhysicalDeviceFeatures(physicalDevice, &features);
-        VkPhysicalDeviceFeatures requiredFeatures = {VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_FALSE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_FALSE, VK_TRUE, VK_TRUE, VK_FALSE, VK_FALSE, VK_TRUE, VK_TRUE, VK_TRUE, VK_FALSE, VK_TRUE, VK_TRUE, VK_TRUE, VK_TRUE, VK_FALSE, VK_TRUE, VK_TRUE};
-
-        for (int offset = 0; offset < sizeof(VkPhysicalDeviceFeatures); offset += sizeof(VkBool32)) {
-            VkBool32 srcValue = *(VkBool32*)(((char*)&features) + offset);
-            VkBool32 dstValue = *(VkBool32*)(((char*)&requiredFeatures) + offset);
-
-            if (srcValue != dstValue) {
-                version = VK_MAKE_VERSION(1, 2, 0);
-                break;
-            }
-        }
-    }
 
     char value[32] = {0};
     sprintf(value, "%d", version);
