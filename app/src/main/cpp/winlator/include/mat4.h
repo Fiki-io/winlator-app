@@ -3,6 +3,7 @@
 
 #include <malloc.h>
 #include <math.h>
+#include <string.h>
 
 #define MAT4_SIZE 16 * sizeof(float)
 #define IDENTITY_MATRIX {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}

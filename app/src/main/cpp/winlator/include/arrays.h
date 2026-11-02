@@ -3,6 +3,7 @@
 
 #include <malloc.h>
 #include <stdbool.h>
+#include <string.h>
 
 typedef struct ArrayBuffer {
     int size;

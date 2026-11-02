@@ -98,3 +98,4 @@ jobs:
           name: winlator-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 14
+
