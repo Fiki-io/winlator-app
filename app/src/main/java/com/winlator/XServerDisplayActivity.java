@@ -276,7 +276,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
             @Override
             public void onModifyWindowProperty(Window window, Property property) {
-                if (property != null && (property.atom == Atom._NET_WM_SURFACE || property.atom == Atom._NET_WM_GPU_INFO)) {
+                if (property != null && (property.name == Atom._NET_WM_SURFACE || property.name == Atom._NET_WM_GPU_INFO)) {
                     changeFrameRatingVisibility(window, true);
                 }
             }
@@ -1195,7 +1195,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
                 runOnUiThread(() -> frameRating.setVisibility(View.VISIBLE));
             }
         }
-        else if (window != null && (window.id == frameRatingWindowId || (window.parent != null && window.parent.id == frameRatingWindowId))) {
+        else if (window != null && (window.id == frameRatingWindowId || (window.getParent() != null && window.getParent().id == frameRatingWindowId))) {
             Window nextCandidate = findCandidateFrameRatingWindow();
             if (nextCandidate != null && nextCandidate.id != window.id) {
                 frameRatingWindowId = nextCandidate.id;
