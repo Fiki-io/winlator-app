@@ -100,6 +100,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 public class XServerDisplayActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
@@ -239,7 +240,16 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         xServer.windowManager.addOnWindowModificationListener(new WindowManager.OnWindowModificationListener() {
             @Override
             public void onUpdateWindowContent(Window window) {
-                if (window.id == frameRatingWindowId) frameRating.update();
+                if (frameRating == null) return;
+                if (isMatchingFrameRatingWindow(window)) {
+                    frameRating.update();
+                }
+                else if ((frameRatingWindowId == -1 || xServer.windowManager.getWindow(frameRatingWindowId) == null) &&
+                         window.attributes.isMapped() && !window.isDesktopWindow() &&
+                         window.getWidth() >= ScreenInfo.MIN_WIDTH && window.getHeight() >= ScreenInfo.MIN_HEIGHT) {
+                    changeFrameRatingVisibility(window, true);
+                    frameRating.update();
+                }
             }
 
             @Override
@@ -262,6 +272,13 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             @Override
             public void onUnmapWindow(Window window) {
                 changeFrameRatingVisibility(window, false);
+            }
+
+            @Override
+            public void onModifyWindowProperty(Window window, Property property) {
+                if (property != null && (property.atom == Atom._NET_WM_SURFACE || property.atom == Atom._NET_WM_GPU_INFO)) {
+                    changeFrameRatingVisibility(window, true);
+                }
             }
         });
 
@@ -1095,33 +1112,107 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         SettingsFragment.resetPreferenceVersions(this);
     }
 
+    private Window findSurfaceWindow(Window window) {
+        if (window == null) return null;
+        if (window.isSurface()) return window;
+        for (int i = 0; i < window.getChildCount(); i++) {
+            Window child = window.getChildAt(i);
+            if (child != null) {
+                Window surface = findSurfaceWindow(child);
+                if (surface != null) return surface;
+            }
+        }
+        return null;
+    }
+
+    private Window findCandidateFrameRatingWindow() {
+        if (xServer == null || xServer.windowManager == null) return null;
+        Window root = xServer.windowManager.rootWindow;
+        if (root == null) return null;
+        List<Window> children = root.getChildren();
+        for (int i = children.size() - 1; i >= 0; i--) {
+            Window w = children.get(i);
+            if (w != null && w.attributes.isMapped() && !w.isDesktopWindow()) {
+                Window surface = findSurfaceWindow(w);
+                if (surface != null && surface.attributes.isMapped()) return surface;
+                if (w.getWidth() >= ScreenInfo.MIN_WIDTH && w.getHeight() >= ScreenInfo.MIN_HEIGHT) return w;
+            }
+        }
+        return null;
+    }
+
+    private boolean isMatchingFrameRatingWindow(Window window) {
+        if (window == null || frameRatingWindowId == -1) return false;
+        if (window.id == frameRatingWindowId) return true;
+        Window parent = window.getParent();
+        while (parent != null && parent != xServer.windowManager.rootWindow) {
+            if (parent.id == frameRatingWindowId) return true;
+            parent = parent.getParent();
+        }
+        Window currentRatingWindow = xServer.windowManager.getWindow(frameRatingWindowId);
+        if (currentRatingWindow != null) {
+            Window currParent = currentRatingWindow.getParent();
+            while (currParent != null && currParent != xServer.windowManager.rootWindow) {
+                if (currParent.id == window.id) return true;
+                currParent = currParent.getParent();
+            }
+        }
+        return false;
+    }
+
     public void changeFrameRatingVisibility(Window window, boolean visible) {
         if (frameRating == null) return;
         if (visible) {
-            if (window.id == frameRatingWindowId) return;
-            Window child = window.getChildAt(0);
-            boolean viewable = window.attributes.isMapped() && window.getWidth() >= ScreenInfo.MIN_WIDTH && window.getHeight() >= ScreenInfo.MIN_HEIGHT;
+            if (window == null) return;
+            boolean viewable = window.attributes.isMapped() &&
+                    window.getWidth() >= ScreenInfo.MIN_WIDTH &&
+                    window.getHeight() >= ScreenInfo.MIN_HEIGHT &&
+                    !window.isDesktopWindow();
             Window frameRatingWindow = null;
-            if (viewable && (window.isSurface() || (child != null && child.isSurface()))) {
-                frameRatingWindow = window.isSurface() ? window : child;
+            if (viewable) {
+                Window surface = findSurfaceWindow(window);
+                frameRatingWindow = surface != null ? surface : window;
             }
             else if (window.isSurface() && !window.isApplicationWindow()) {
                 Window parent = window.getParent();
-                if (parent != null && parent.isApplicationWindow() && !parent.isSurface()) frameRatingWindow = window;
+                if (parent != null && parent.isApplicationWindow() && !parent.isSurface()) {
+                    frameRatingWindow = window;
+                }
+                else frameRatingWindow = window;
             }
 
             if (frameRatingWindow != null) {
+                if (frameRatingWindow.id == frameRatingWindowId) return;
                 if (frameRating.getMode() == FrameRating.Mode.FULL) {
                     Property gpuInfo = frameRatingWindow.getProperty(Atom._NET_WM_GPU_INFO);
+                    if (gpuInfo == null && frameRatingWindow.getParent() != null) {
+                        gpuInfo = frameRatingWindow.getParent().getProperty(Atom._NET_WM_GPU_INFO);
+                    }
                     frameRating.setGPUInfo(gpuInfo != null ? new String(gpuInfo.data.array()) : "N/A");
                 }
                 frameRatingWindowId = frameRatingWindow.id;
                 frameRating.reset();
+                runOnUiThread(() -> frameRating.setVisibility(View.VISIBLE));
             }
         }
-        else if (window.id == frameRatingWindowId) {
-            frameRatingWindowId = -1;
-            runOnUiThread(() -> frameRating.setVisibility(View.GONE));
+        else if (window != null && (window.id == frameRatingWindowId || (window.parent != null && window.parent.id == frameRatingWindowId))) {
+            Window nextCandidate = findCandidateFrameRatingWindow();
+            if (nextCandidate != null && nextCandidate.id != window.id) {
+                frameRatingWindowId = nextCandidate.id;
+                if (frameRating.getMode() == FrameRating.Mode.FULL) {
+                    Property gpuInfo = nextCandidate.getProperty(Atom._NET_WM_GPU_INFO);
+                    if (gpuInfo == null && nextCandidate.getParent() != null) {
+                        gpuInfo = nextCandidate.getParent().getProperty(Atom._NET_WM_GPU_INFO);
+                    }
+                    frameRating.setGPUInfo(gpuInfo != null ? new String(gpuInfo.data.array()) : "N/A");
+                }
+                frameRating.reset();
+                runOnUiThread(() -> frameRating.setVisibility(View.VISIBLE));
+            }
+            else {
+                frameRatingWindowId = -1;
+                runOnUiThread(() -> frameRating.setVisibility(View.GONE));
+            }
         }
     }
 

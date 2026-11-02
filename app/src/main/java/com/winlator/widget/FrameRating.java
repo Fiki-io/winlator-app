@@ -100,9 +100,10 @@ public class FrameRating extends FrameLayout implements Runnable {
 
     public void reset() {
         frameCount = 0;
-        lastTime = SystemClock.elapsedRealtime();
+        lastTime = 0;
         lastFPS = 0;
         tick = 2;
+        post(this);
     }
 
     public void update() {

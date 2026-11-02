@@ -179,6 +179,10 @@ public class PresentExtension extends Extension implements WindowManager.OnWindo
         synchronized (content.renderLock) {
             sendCompleteNotify(window, serial, CompleteKind.PIXMAP, CompleteMode.COPY, ust, msc);
 
+            if (xServer.activity != null && (xServer.activity.frameRatingWindowId == -1 || xServer.activity.frameRatingWindowId != window.id)) {
+                xServer.activity.changeFrameRatingVisibility(window, true);
+            }
+
             if (pixmap != null) {
                 Texture srcTexture = pixmap.drawable.getTexture();
                 if (srcTexture instanceof GPUImage) {
