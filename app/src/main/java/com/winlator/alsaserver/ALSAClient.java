@@ -242,10 +242,7 @@ public class ALSAClient {
     }
 
     public int pointer() {
-        if (nativeAAudioHandle != 0) {
-            return (int)NativeAAudio.getFramePosition(nativeAAudioHandle);
-        }
-        return audioTrack != null ? position / frameBytes : 0;
+        return position / frameBytes;
     }
 
     public void setDataType(DataType dataType) {

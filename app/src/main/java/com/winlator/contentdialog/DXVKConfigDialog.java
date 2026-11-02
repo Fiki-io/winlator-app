@@ -11,7 +11,6 @@ import com.winlator.core.DefaultVersion;
 import com.winlator.core.EnvVars;
 import com.winlator.core.FileUtils;
 import com.winlator.core.GeneralComponents;
-import com.winlator.core.GPUHelper;
 import com.winlator.core.KeyValueSet;
 import com.winlator.core.StringUtils;
 import com.winlator.widget.GPUCardAdapter;
@@ -115,14 +114,6 @@ public class DXVKConfigDialog extends ContentDialog {
         }
 
         content += "d3d11.constantBufferRangeCheck = \"True\"\n\n";
-
-        if (context != null && GPUHelper.isMali(context)) {
-            content += "d3d9.deferSurfaceCreation = True\n";
-            content += "d3d9.maxFrameLatency = 1\n";
-            content += "d3d9.samplerAnisotropy = 0\n";
-            content += "dxgi.syncInterval = 0\n";
-            content += "d3d9.presentInterval = 0\n\n";
-        }
 
         content += "[gta_sa.exe]\n";
         content += "d3d9.deferSurfaceCreation = True\n";
